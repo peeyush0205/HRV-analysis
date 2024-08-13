@@ -1,0 +1,11 @@
+Model,Training RMSE,Test RMSE,Training R^2,Test R^2,,,Model,Test RMSE
+LinearRegression,29.613,38.09,0.928,0.282,,,LinearRegression,38.09
+DecisionTree,0,21.825,1,0.764,,,DecisionTree,21.825
+RandomForest,16.497,25.466,0.978,0.679,,,RandomForest,25.466
+Ridge,29.621,38.538,0.928,0.265,,,Ridge,38.538
+Lasso,29.613,38.154,0.928,0.28,,,Lasso,38.154
+ElasticNet,29.635,38.818,0.928,0.254,,,ElasticNet,38.818
+GradientBoosting,17.867,28.895,0.974,0.587,,,GradientBoosting,28.895
+AdaBoost,14.086,33.079,0.984,0.458,,,AdaBoost,33.079
+XGBoost,7.439,22.911,0.995,0.74,,,XGBoost,22.911
+Ensemble,17.303,27.31,0.975,0.631,,,Ensemble,27.31
