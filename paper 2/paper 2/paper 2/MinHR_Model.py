@@ -15,7 +15,7 @@ Created on Wed Jul  3 14:02:50 2024
 """
 
 import pandas as pd
-from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.model_selection import RandomizedSearchCV, train_test_split, GridSearchCV
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor, VotingRegressor
@@ -29,11 +29,11 @@ from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, AdaBoostRegressor,StackingRegressor
 from xgboost import XGBRegressor
 from tabulate import tabulate
-
+from sklearn.metrics import mean_absolute_error as mae 
 
 # Load the data from the uploaded files
-data_AD8232 = pd.read_csv('em_AD.csv')
-data_Max3003 = pd.read_csv('em_max.csv')
+data_AD8232 = pd.read_csv('Min_HR_AD.csv')
+data_Max3003 = pd.read_csv('Min_HR_max.csv')
 
 # Combine the datasets and label them
 data_AD8232['sensor'] = 'AD8232'
@@ -41,8 +41,8 @@ data_Max3003['sensor'] = 'Max3003'
 data = pd.concat([data_AD8232, data_Max3003])
 
 # Prepare the features and target
-features = ['MeanRR_sensor']
-target = 'MeanRR_emWave'
+features = ['Min_HR_sensor']
+target = 'Min_HR_emWave'
 
 # Splitting the data for each sensor type
 X_AD8232 = data_AD8232[features]
@@ -77,6 +77,7 @@ def train_evaluate_model(X_train, X_test, y_train, y_test, model, param_grid, mo
     test_rmse = np.sqrt(mean_squared_error(y_test, y_test_pred))
     train_r2 = r2_score(y_train, y_train_pred)
     test_r2 = r2_score(y_test, y_test_pred)
+    test_mae=mae(y_test, y_test_pred)
 
     print(f'Model: {model_name}')
     print(f'Best Parameters: {grid_search.best_params_}')
@@ -84,9 +85,10 @@ def train_evaluate_model(X_train, X_test, y_train, y_test, model, param_grid, mo
     print(f'Test RMSE: {test_rmse}')
     print(f'Training R^2: {train_r2}')
     print(f'Test R^2: {test_r2}')
+    print(f'Test MAE: {test_mae}')
     print('-'*50)
 
-    return best_model, train_rmse, test_rmse, train_r2, test_r2
+    return best_model, train_rmse, test_rmse, train_r2, test_r2, test_mae
 
 # Define the models and their hyperparameters
 models = {
@@ -109,9 +111,9 @@ print("AD8232 Sensor:")
 best_models_AD8232 = {}
 results_AD8232 = []
 for model_name, (model, param_grid) in models.items():
-    best_model, train_rmse, test_rmse, train_r2, test_r2 = train_evaluate_model(X_train_AD8232, X_test_AD8232, y_train_AD8232, y_test_AD8232, model, param_grid, model_name)
+    best_model, train_rmse, test_rmse, train_r2, test_r2, test_mae = train_evaluate_model(X_train_AD8232, X_test_AD8232, y_train_AD8232, y_test_AD8232, model, param_grid, model_name)
     best_models_AD8232[model_name] = best_model
-    results_AD8232.append((model_name, train_rmse, test_rmse, train_r2, test_r2))
+    results_AD8232.append((model_name, train_rmse, test_rmse, train_r2, test_r2,test_mae))
 
 # Train and evaluate models for Max3003
 # print(best_models_AD8232)
@@ -119,9 +121,9 @@ print("\nMax3003 Sensor:")
 best_models_Max3003 = {}
 results_Max3003 = []
 for model_name, (model, param_grid) in models.items():
-    best_model, train_rmse, test_rmse, train_r2, test_r2 = train_evaluate_model(X_train_Max3003, X_test_Max3003, y_train_Max3003, y_test_Max3003, model, param_grid, model_name)
+    best_model, train_rmse, test_rmse, train_r2, test_r2, test_mae = train_evaluate_model(X_train_Max3003, X_test_Max3003, y_train_Max3003, y_test_Max3003, model, param_grid, model_name)
     best_models_Max3003[model_name] = best_model
-    results_Max3003.append((model_name, train_rmse, test_rmse, train_r2, test_r2))
+    results_Max3003.append((model_name, train_rmse, test_rmse, train_r2, test_r2, test_mae))
 
 # Ensemble model using VotingRegressor
 def ensemble_model(X_train, X_test, y_train, y_test, best_models, model_name,chk):
@@ -133,7 +135,7 @@ def ensemble_model(X_train, X_test, y_train, y_test, best_models, model_name,chk
     ensemble = VotingRegressor(estimators=[(name, model) for name, model in best_models.items()])
     #ensemble = StackingRegressor(estimators=[(name, model) for name, model in best_models.items()])
     ensemble.fit(X_train_scaled, y_train)
-
+     
     y_train_pred = ensemble.predict(X_train_scaled)
     y_test_pred = ensemble.predict(X_test_scaled)
 
@@ -141,6 +143,7 @@ def ensemble_model(X_train, X_test, y_train, y_test, best_models, model_name,chk
     test_rmse = np.sqrt(mean_squared_error(y_test, y_test_pred))
     train_r2 = r2_score(y_train, y_train_pred)
     test_r2 = r2_score(y_test, y_test_pred)
+    test_mae=mae(y_test,y_test_pred)
 
     if chk:
         print(f'Ensemble Model: {model_name}')
@@ -148,11 +151,10 @@ def ensemble_model(X_train, X_test, y_train, y_test, best_models, model_name,chk
         print(f'Test RMSE: {test_rmse}')
         print(f'Training R^2: {train_r2}')
         print(f'Test R^2: {test_r2}')
+        print(f'Test R^2: {test_mae}')
         print('-'*50)
     
-    return ensemble, train_rmse, test_rmse, train_r2, test_r2
-
-
+    return ensemble, train_rmse, test_rmse, train_r2, test_r2, test_mae
 
 # def ensemble_model(X_train, X_test, y_train, y_test, best_models, model_name):
 #     try:
@@ -215,7 +217,7 @@ for i in range(n):
             model_AD8232[store[i]]=best_models_AD8232[store[i]]
             model_AD8232[store[j]]=best_models_AD8232[store[j]]
             model_AD8232[store[k]]=best_models_AD8232[store[k]]
-            ensemble_AD8232, train_rmse_ensemble_AD8232, test_rmse_AD8232, train_r2_ensemble_AD8232, test_r2_ensemble_AD8232 = ensemble_model(X_train_AD8232, X_test_AD8232, y_train_AD8232, y_test_AD8232, model_AD8232, 'AD8232',0)
+            ensemble_AD8232, train_rmse_ensemble_AD8232, test_rmse_AD8232, train_r2_ensemble_AD8232, test_r2_ensemble_AD8232, test_mae_ensemble_AD8232 = ensemble_model(X_train_AD8232, X_test_AD8232, y_train_AD8232, y_test_AD8232, model_AD8232, 'AD8232',0)
 
             if(test_rmse_AD8232<minimum_AD8232):
                 model1_AD8232=store[i]
@@ -236,7 +238,7 @@ for i in range(n):
             model_Max3003[store[i]]=best_models_Max3003[store[i]]
             model_Max3003[store[j]]=best_models_Max3003[store[j]]
             model_Max3003[store[k]]=best_models_Max3003[store[k]]
-            ensemble_Max3003, train_rmse_ensemble_Max3003, test_rmse_Max3003, train_r2_ensemble_Max3003, test_r2_ensemble_Max3003 = ensemble_model(X_train_Max3003, X_test_Max3003, y_train_Max3003, y_test_Max3003, model_Max3003, 'Max3003',0)
+            ensemble_Max3003, train_rmse_ensemble_Max3003, test_rmse_Max3003, train_r2_ensemble_Max3003, test_r2_ensemble_Max3003, test_mae_ensemble_Max3003 = ensemble_model(X_train_Max3003, X_test_Max3003, y_train_Max3003, y_test_Max3003, model_Max3003, 'Max3003',0)
 
             if(test_rmse_Max3003<minimum_Max3003):
                 model1_Max3003=store[i]
@@ -256,18 +258,24 @@ ensemble_model_Max3003[model2_Max3003]=best_models_Max3003[model2_Max3003]
 ensemble_model_Max3003[model3_Max3003]=best_models_Max3003[model3_Max3003]
 
 
-column_names = ['Model','Training RMSE', 'Test RMSE', 'Training R^2', 'Test R^2']
+column_names = ['Model','Training RMSE', 'Test RMSE', 'Training R^2', 'Test R^2', 'Test MAE']
 
 # Create ensemble models
 print("\nEnsemble Model for AD8232 Sensor:")
-ensemble_AD8232, train_rmse_ensemble_AD8232, test_rmse_ensemble_AD8232, train_r2_ensemble_AD8232, test_r2_ensemble_AD8232 = ensemble_model(X_train_AD8232, X_test_AD8232, y_train_AD8232, y_test_AD8232,ensemble_model_AD8232, 'AD8232',1)
+print(model1_AD8232)
+print(model2_AD8232)
+print(model3_AD8232)
+ensemble_AD8232, train_rmse_ensemble_AD8232, test_rmse_ensemble_AD8232, train_r2_ensemble_AD8232, test_r2_ensemble_AD8232, test_mae_ensemble_AD8232 = ensemble_model(X_train_AD8232, X_test_AD8232, y_train_AD8232, y_test_AD8232,ensemble_model_AD8232, 'AD8232',1)
 
 print("\nEnsemble Model for Max3003 Sensor:")
-ensemble_Max3003, train_rmse_ensemble_Max3003, test_rmse_ensemble_Max3003, train_r2_ensemble_Max3003, test_r2_ensemble_Max3003 = ensemble_model(X_train_Max3003, X_test_Max3003, y_train_Max3003, y_test_Max3003,ensemble_model_Max3003, 'Max3003',1)
+print(model1_Max3003)
+print(model2_Max3003)
+print(model3_Max3003)
+ensemble_Max3003, train_rmse_ensemble_Max3003, test_rmse_ensemble_Max3003, train_r2_ensemble_Max3003, test_r2_ensemble_Max3003, test_mae_ensemble_Max3003 = ensemble_model(X_train_Max3003, X_test_Max3003, y_train_Max3003, y_test_Max3003,ensemble_model_Max3003, 'Max3003',1)
 
 # Summarize results
 print("\nSummary of Results for AD8232 Sensor:")
-results_AD8232.append(('Ensemble', train_rmse_ensemble_AD8232, test_rmse_ensemble_AD8232, train_r2_ensemble_AD8232, test_r2_ensemble_AD8232))
+results_AD8232.append(('Ensemble', train_rmse_ensemble_AD8232, test_rmse_ensemble_AD8232, train_r2_ensemble_AD8232, test_r2_ensemble_AD8232,test_mae_ensemble_AD8232))
 # for result in results_AD8232:
 #     print(f"Model: {result[0]}, Training RMSE: {result[1]}, Test RMSE: {result[2]}, Training R^2: {result[3]}, Test R^2: {result[4]}")
 
@@ -276,9 +284,10 @@ print(tabulate(df_AD8232, headers='keys', tablefmt='grid'))
 
 
 print("\nSummary of Results for Max3003 Sensor:")
-results_Max3003.append(('Ensemble', train_rmse_ensemble_Max3003, test_rmse_ensemble_Max3003, train_r2_ensemble_Max3003, test_r2_ensemble_Max3003))
+results_Max3003.append(('Ensemble', train_rmse_ensemble_Max3003, test_rmse_ensemble_Max3003, train_r2_ensemble_Max3003, test_r2_ensemble_Max3003,test_mae_ensemble_Max3003))
 # for result in results_Max3003:
 #     print(f"Model: {result[0]}, Training RMSE: {result[1]}, Test RMSE: {result[2]}, Training R^2: {result[3]}, Test R^2: {result[4]}")
 
 df_Max3003 = pd.DataFrame(results_Max3003, columns=column_names)
 print(tabulate(df_Max3003, headers='keys', tablefmt='grid'))
+
