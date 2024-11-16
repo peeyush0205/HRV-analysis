@@ -1,0 +1,5 @@
+Model,Training RMSE,Test RMSE,Training R^2,Test R^2
+LinearRegression,29.613,38.09,0.928,0.282
+SVM,39.522,51.535,0.871,-0.314
+Lasso,29.613,38.154,0.928,0.28
+Ensemble,30.881,42.377,0.921,0.111
